@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Pub/Sub smoke
+        run: |
+          python demo/sub_telemetry.py > sub.log 2>&1 &
+          SUB_PID=$!
+          sleep 1
+          python demo/pub_telemetry.py > pub.log 2>&1 || true
+          echo "---- sub.log ----"; tail -n +1 sub.log || true
+          echo "---- pub.log ----"; tail -n +1 pub.log || true
+          kill $SUB_PID || true
+
+      - name: RPC smoke
+        run: |
+          python demo/rpc_server.py > server.log 2>&1 &
+          SVC_PID=$!
+          sleep 1
+          python demo/rpc_client.py > client.log 2>&1 || true
+          echo "---- server.log ----"; tail -n +1 server.log || true
+          echo "---- client.log ----"; tail -n +1 client.log || true
+          kill $SVC_PID || true
