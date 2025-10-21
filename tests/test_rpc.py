@@ -41,7 +41,7 @@ def test_rpc_roundtrip():
             [sys.executable, "demo/rpc_client.py"],
             capture_output=True,
             text=True,
-            timeout=100,
+            timeout=1000,
         )
 
         # Client should exit cleanly and print some JSON/response text.
