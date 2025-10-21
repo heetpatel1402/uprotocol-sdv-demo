@@ -1,33 +1,42 @@
-# demo/pub_telemetry.py
-import socket, json, time, uuid, random
+#!/usr/bin/env python3
+import json
+import os
+import socket
+import time
+import uuid
 
-SUB_PORT = 50051  # where subscriber is listening
+# Defaults are safe for CI; you can override locally:
+COUNT = int(os.getenv("DEMO_COUNT", "1"))      # how many events to send
+DELAY = float(os.getenv("DEMO_DELAY", "0"))    # seconds between events
+TARGET_HOST = os.getenv("DEMO_TARGET_HOST", "127.0.0.1")
+TARGET_PORT = int(os.getenv("DEMO_TARGET_PORT", "50052"))
 
-def uuri(authority, ue_id, resource, v=1):
-    return f"up://{authority}/{ue_id}{resource}?v={v}"
-
-def build_speed_event(kmh: int):
+def build_event():
     return {
         "type": "EVENT",
         "id": str(uuid.uuid4()),
-        "source": uuri("car-01", "vehicle.telemetry", "/publisher"),
-        "target": uuri("car-01", "vehicle.telemetry", "/speed"),
+        "source": "up://car-01/vehicle.telemetry/publisher?v=1",
+        "target": "up://car-01/vehicle.telemetry/speed?v=1",
         "content_type": "application/json",
-        "payload": {"kmh": kmh, "timestamp_ms": int(time.time() * 1000)},
+        "payload": {
+            "kmh": 72,
+            "timestamp_ms": int(time.time() * 1000),
+        },
         "qos": 0,
         "ttl_ms": 2000,
     }
 
 def main():
+    addr = (TARGET_HOST, TARGET_PORT)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    print(f"[pub] sending to udp://127.0.0.1:{SUB_PORT} every 1s. Ctrl+C to stop.")
-    while True:
-        kmh = random.randint(20, 120)
-        msg = build_speed_event(kmh)
-        sock.sendto(json.dumps(msg).encode("utf-8"), ("127.0.0.1", SUB_PORT))
-        print(f"[pub] -> speed {kmh} km/h (id={msg['id'][:8]}...)")
-        time.sleep(1)
+    try:
+        for _ in range(COUNT):
+            evt = build_event()
+            sock.sendto(json.dumps(evt).encode("utf-8"), addr)
+            if DELAY > 0:
+                time.sleep(DELAY)
+    finally:
+        sock.close()
 
 if __name__ == "__main__":
     main()
-
