@@ -1,11 +1,11 @@
-name: PyTest
+name: PyTest Matrix
 
 on:
   push:
     paths:
       - "demo/**"
       - "tests/**"
-      - ".github/workflows/pytest.yml"
+      - ".github/workflows/pytest-matrix.yml"
   pull_request:
 
 jobs:
