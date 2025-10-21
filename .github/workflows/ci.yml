@@ -7,28 +7,66 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 8   # hard cap for the entire job
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Pub/Sub smoke
+      # --- Pub/Sub smoke test (bounded) ---
+      - name: Pub/Sub smoke (bounded)
+        shell: bash
         run: |
-          python demo/sub_telemetry.py > sub.log 2>&1 &
-          SUB_PID=$!
-          sleep 1
-          python demo/pub_telemetry.py > pub.log 2>&1 || true
-          echo "---- sub.log ----"; tail -n +1 sub.log || true
-          echo "---- pub.log ----"; tail -n +1 pub.log || true
-          kill $SUB_PID || true
+          set -euxo pipefail
 
-      - name: RPC smoke
-        run: |
-          python demo/rpc_server.py > server.log 2>&1 &
-          SVC_PID=$!
+          # Start subscriber in its own process group so we can kill the group.
+          setsid bash -c 'python demo/sub_telemetry.py' > sub.log 2>&1 &
+          SUB_PID=$!
+          SUB_PGID=$(ps -o pgid= -p "$SUB_PID" | tr -d ' ')
+
+          # Give it a moment to bind.
           sleep 1
-          python demo/rpc_client.py > client.log 2>&1 || true
-          echo "---- server.log ----"; tail -n +1 server.log || true
-          echo "---- client.log ----"; tail -n +1 client.log || true
-          kill $SVC_PID || true
+
+          # Run publisher with a strict timeout so it never hangs.
+          timeout 10s python demo/pub_telemetry.py > pub.log 2>&1 || true
+
+          # Let the subscriber print the received event.
+          sleep 1
+
+          # Always clean up subscriber.
+          kill "$SUB_PID" 2>/dev/null || true
+          # Safety nets:
+          pkill -f sub_telemetry.py || true
+          # Kill the whole process group if still alive:
+          if [ -n "${SUB_PGID:-}" ]; then kill -TERM -"$SUB_PGID" 2>/dev/null || true; fi
+
+          echo "::group::sub.log"; cat sub.log || true; echo "::endgroup::"
+          echo "::group::pub.log"; cat pub.log || true; echo "::endgroup::"
+
+      # --- RPC smoke test (bounded) ---
+      - name: RPC smoke (bounded)
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          # Start RPC server in its own process group.
+          setsid bash -c 'python demo/rpc_server.py' > server.log 2>&1 &
+          SVC_PID=$!
+          SVC_PGID=$(ps -o pgid= -p "$SVC_PID" | tr -d ' ')
+
+          sleep 1
+
+          # Run client with strict timeout.
+          timeout 10s python demo/rpc_client.py > client.log 2>&1 || true
+
+          sleep 1
+
+          # Always clean up server.
+          kill "$SVC_PID" 2>/dev/null || true
+          pkill -f rpc_server.py || true
+          if [ -n "${SVC_PGID:-}" ]; then kill -TERM -"$SVC_PGID" 2>/dev/null || true; fi
+
+          echo "::group::server.log"; cat server.log || true; echo "::endgroup::"
+          echo "::group::client.log"; cat client.log || true; echo "::endgroup::"
