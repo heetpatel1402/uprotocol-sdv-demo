@@ -1,8 +1,7 @@
 """
-Pub/Sub smoke test.
-
-Starts the subscriber, runs the publisher once, and ensures the publisher
-exited cleanly. We keep it lightweight so it runs reliably in CI.
+Pub/Sub smoke test that is deterministic in CI.
+- Starts the subscriber
+- Runs the publisher once (one-shot) and verifies it exits cleanly
 """
 
 import os
@@ -13,19 +12,17 @@ import time
 
 
 def _start_subscriber():
-    # Start demo/sub_telemetry.py in its own process group so we can cleanly kill it.
-    # stdout/stderr to DEVNULL to avoid pipe blocking.
+    # run in its own process group so we can kill reliably on CI
     return subprocess.Popen(
         [sys.executable, "demo/sub_telemetry.py"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        start_new_session=True,  # new process group
+        start_new_session=True,
     )
 
 
-def _kill_process_group(proc: subprocess.Popen):
+def _kill_pg(proc: subprocess.Popen):
     try:
-        # Send SIGTERM to the whole group (works on Linux CI)
         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
     except Exception:
         pass
@@ -38,18 +35,22 @@ def _kill_process_group(proc: subprocess.Popen):
 def test_pubsub_runs():
     sub = _start_subscriber()
     try:
-        # Give the subscriber time to bind its UDP socket.
-        time.sleep(1.0)
+        # Give subscriber time to bind the UDP socket
+        time.sleep(2.0)
 
-        # Run publisher with a strict timeout so CI can’t hang.
+        env = os.environ.copy()
+        env["DEMO_COUNT"] = "1"
+        env["DEMO_DELAY"] = "0"
+
+        # Run the publisher in one-shot mode
         pub = subprocess.run(
             [sys.executable, "demo/pub_telemetry.py"],
+            env=env,
             capture_output=True,
             text=True,
-            timeout=1000,
+            timeout=20,     # should be more than enough now
         )
 
-        # Publisher should exit cleanly.
-        assert pub.returncode == 0, f"publisher failed: {pub.stderr}"
+        assert pub.returncode == 0, f"Publisher failed:\nSTDERR:\n{pub.stderr}\nSTDOUT:\n{pub.stdout}"
     finally:
-        _kill_process_group(sub)
+        _kill_pg(sub)
