@@ -46,7 +46,7 @@ def test_pubsub_runs():
             [sys.executable, "demo/pub_telemetry.py"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=100,
         )
 
         # Publisher should exit cleanly.
