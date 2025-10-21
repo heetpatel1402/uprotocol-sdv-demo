@@ -1,11 +1,7 @@
-name: PyTest Matrix
+name: PyTests
 
 on:
   push:
-    paths:
-      - "demo/**"
-      - "tests/**"
-      - ".github/workflows/pytest-matrix.yml"
   pull_request:
 
 jobs:
@@ -15,15 +11,37 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ['3.10', '3.11', '3.12']
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install deps
+          cache: 'pip'   # speeds up installs using requirements.txt
+
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; f
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Ensure pytest is present even if it's missing from requirements.txt
+          python -m pip install pytest
+
       - name: Run pytest
-        run: pytest -q
+        run: |
+          pytest -q
+
+      # If something fails, save caches/logs to help debug
+      - name: Upload pytest artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-artifacts-${{ matrix.python-version }}
+          path: |
+            .pytest_cache
+            **/.pytest_cache
+            **/pytest-*.log
+          if-no-files-found: ignore
