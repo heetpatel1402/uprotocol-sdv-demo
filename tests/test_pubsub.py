@@ -1,25 +1,21 @@
-"""
-Pub/Sub smoke test that is deterministic in CI.
-- Starts the subscriber
-- Runs the publisher once (one-shot) and verifies it exits cleanly
-"""
-
 import os
 import signal
 import subprocess
 import sys
 import time
 
-
 def _start_subscriber():
-    # run in its own process group so we can kill reliably on CI
+    env = os.environ.copy()
+    env["DEMO_SUB_TIMEOUT"] = "5"  # exit after first message or 5s
+    # new session => its own process group (easy cleanup)
     return subprocess.Popen(
         [sys.executable, "demo/sub_telemetry.py"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
         start_new_session=True,
     )
-
 
 def _kill_pg(proc: subprocess.Popen):
     try:
@@ -31,26 +27,33 @@ def _kill_pg(proc: subprocess.Popen):
     except Exception:
         pass
 
-
 def test_pubsub_runs():
     sub = _start_subscriber()
     try:
-        # Give subscriber time to bind the UDP socket
-        time.sleep(2.0)
+        # Give subscriber time to bind
+        time.sleep(1.0)
 
         env = os.environ.copy()
         env["DEMO_COUNT"] = "1"
         env["DEMO_DELAY"] = "0"
 
-        # Run the publisher in one-shot mode
         pub = subprocess.run(
             [sys.executable, "demo/pub_telemetry.py"],
             env=env,
             capture_output=True,
             text=True,
-            timeout=20,     # should be more than enough now
+            timeout=20,
         )
 
-        assert pub.returncode == 0, f"Publisher failed:\nSTDERR:\n{pub.stderr}\nSTDOUT:\n{pub.stdout}"
+        assert pub.returncode == 0, f"Publisher failed:\n{pub.stderr}\n{pub.stdout}"
+
+        # Optionally, read what the subscriber printed (not required for pass)
+        try:
+            out, err = sub.communicate(timeout=6)
+            # If you want, assert something about `out`
+            # assert '"type": "EVENT"' in out
+        except subprocess.TimeoutExpired:
+            # It should not happen because of DEMO_SUB_TIMEOUT=5, but don’t fail test if it does
+            pass
     finally:
         _kill_pg(sub)
