@@ -1,4 +1,4 @@
-name: PyTests
+name: tests
 
 on:
   push:
@@ -8,10 +8,11 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12']
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
       - name: Checkout
@@ -21,27 +22,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'   # speeds up installs using requirements.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Ensure pytest is present even if it's missing from requirements.txt
-          python -m pip install pytest
+          pip install pytest
 
       - name: Run pytest
-        run: |
-          pytest -q
+        run: pytest -q
 
-      # If something fails, save caches/logs to help debug
+      # If something fails, keep logs for quick debugging
       - name: Upload pytest artifacts (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-artifacts-${{ matrix.python-version }}
+          name: pytest-logs-py${{ matrix.python-version }}
           path: |
-            .pytest_cache
-            **/.pytest_cache
-            **/pytest-*.log
+            ./.pytest_cache/**
+            ./tests/.pytest_cache/**
           if-no-files-found: ignore
