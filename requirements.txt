@@ -1,0 +1,3 @@
+# Core dependencies for uProtocol SDV Demo
+pytest
+protobuf
