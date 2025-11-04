@@ -14,6 +14,14 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
+    env:
+      # Helpful for subprocessed scripts that support short CI runs
+      CI: "true"
+      DEMO_COUNT: "1"        # if your pub code reads this, publish 1 message
+      DEMO_DELAY: "0"        # no delay between demo messages
+      SUM_INTERVAL_S: "0.2"  # status_summary emit interval (if read)
+      PYTHONUNBUFFERED: "1"  # easier-to-read logs
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,6 +30,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -30,15 +39,18 @@ jobs:
           pip install pytest
 
       - name: Run pytest
-        run: pytest -q
+        run: |
+          mkdir -p test-results
+          # -q quiet, -ra shows extra info for failures/skips, junit for artifacts
+          pytest -q -ra --junitxml=test-results/junit-${{ matrix.python-version }}.xml
 
-      # If something fails, keep logs for quick debugging
       - name: Upload pytest artifacts (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-logs-py${{ matrix.python-version }}
+          name: pytest-artifacts-py${{ matrix.python-version }}
           path: |
+            test-results/*.xml
             ./.pytest_cache/**
             ./tests/.pytest_cache/**
           if-no-files-found: ignore
