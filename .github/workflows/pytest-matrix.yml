@@ -1,43 +1,46 @@
-
-name: Python CI (Free Tier)
+name: Python Pytest Matrix
 
 on:
   push:
-    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main", "master" ]
 
 jobs:
-  build:
-    # 🚨 CRITICAL: Uses the FREE standard runner with 1x billing rate 🚨
+  tests:
+    # Uses the FREE standard runner
     runs-on: ubuntu-latest 
 
     strategy:
-      # Test on multiple Python versions simultaneously
+      fail-fast: true
       matrix:
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Recommended: Caches pip dependencies for faster runs
           cache: 'pip' 
 
-      - name: Install Dependencies
-        # Replace 'pytest' and 'pandas' with packages from your requirements.txt
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          # Assumes you have a requirements.txt file:
-          pip install -r requirements.txt
-          # If not using requirements.txt:
-          # pip install pytest pandas
+          python -m pip install --upgrade pip wheel setuptools
+          # 🚨 FIX: Install pytest-xdist to support the -n flag 🚨
+          pip install pytest streamlit pandas pytest-xdist
 
-      - name: Run Tests
-        # Run tests sequentially (-n 1) is a memory-saving measure 
-        # to prevent Error Code 143 on resource-heavy jobs.
-        run: pytest -v -n 1
+      - name: Run pytest
+        # FIX for Error Code 143: Running sequentially to minimize memory usage
+        run: pytest -v -n 1 
+
+      - name: Upload pytest artifacts (on failure)
+        # This step only runs if a previous step (like 'Run pytest') failed.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-logs-py${{ matrix.python-version }}
+          # Paths to save the cache and log files
+          path: |
+            ./.pytest_cache/**
+            ./tests/pytest_cache/** if-no-files-found: ignore
