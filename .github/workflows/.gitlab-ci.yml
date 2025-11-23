@@ -1,13 +1,13 @@
 stages:
   - test
 
-# Job definition for running tests
 test_job:
   stage: test
-  # Use an official Python Docker image for the environment
-  image: python:3.12-slim-bullseye 
   
-  # Use rules to control when the job runs (e.g., push or merge request)
+  # Use an official Python Docker image for the environment
+  image: python:3.12-slim-bullseye
+  
+  # Use rules to control when the job runs (push or merge request)
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_MERGE_REQUEST_IID
@@ -18,7 +18,5 @@ test_job:
     - pip install pytest streamlit pandas pytest-xdist
     
     # 2. Run tests sequentially (the final memory-saving measure)
-    - |
-      echo ":: Running tests sequentially ::"
-      # Run tests sequentially (-n 1) to minimize memory usage on the free runner.
-      pytest -v -n 1
+    - echo "Starting sequential tests (low memory mode)..."
+    - pytest -v -n 1
