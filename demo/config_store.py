@@ -1,9 +1,8 @@
-# demo/config_store.py
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 _CFG_PATH = Path("logs/config.json")
 
@@ -22,7 +21,8 @@ def _save_raw(cfg: Dict[str, Any]) -> None:
     _CFG_PATH.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
 
-# ------- Writers (FR-7, FR-8) -------
+# ------------- Writers -------------
+
 
 def set_rpc_speed_limit(limit_kmh: int) -> None:
     cfg = _load_raw()
@@ -37,15 +37,10 @@ def set_geo_context(zone_name: Optional[str], limit_kmh: Optional[int]) -> None:
     _save_raw(cfg)
 
 
-# ------- Readers (FR-9) -------
+# ------------- Readers -------------
+
 
 def get_effective_speed_limit(default_threshold: float) -> float:
-    """
-    Priority:
-      1) geofence limit if present
-      2) rpc limit if present
-      3) fallback to default_threshold
-    """
     cfg = _load_raw()
 
     if cfg.get("geo_speed_limit") is not None:
