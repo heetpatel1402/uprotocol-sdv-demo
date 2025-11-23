@@ -1,0 +1,22 @@
+stages:
+  - test
+
+test_job:
+  stage: test
+  
+  # Use an official Python Docker image for the environment
+  image: python:3.12-slim-bullseye
+  
+  # Use rules to control when the job runs (push or merge request)
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_MERGE_REQUEST_IID
+    
+  script:
+    # 1. Install dependencies
+    - pip install --upgrade pip wheel setuptools
+    - pip install pytest streamlit pandas pytest-xdist
+    
+    # 2. Run tests sequentially (the final memory-saving measure)
+    - echo "Starting sequential tests (low memory mode)..."
+    - pytest -v -n 1
