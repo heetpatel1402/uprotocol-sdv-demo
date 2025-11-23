@@ -1,49 +1,38 @@
 name: Python Tests
 
 on:
-  # Triggers the workflow on pushes to any branch
   push:
-  # Triggers the workflow on pull requests targeting any branch
   pull_request:
 
 jobs:
   tests:
-    # Runs the job on the latest Ubuntu runner
+    # Runs the job on the standard GitHub runner
     runs-on: ubuntu-latest
 
-    # Strategy configuration for running the tests against multiple Python versions
     strategy:
-      # Set to 'true' so the entire workflow fails immediately if one version fails
+      # Set to 'true' so the workflow fails immediately if one version fails
       fail-fast: true
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      # Step 1: Checks out your repository code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Sets up the specified Python version
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Recommended to use pip caching for faster subsequent runs
           cache: 'pip' 
 
-      # Step 3: Installs dependencies
-      # Using the safe dependency file (requirements.txt) is highly recommended.
       - name: Install dependencies
         run: |
-          # Upgrade pip and install wheel/setuptools for better installation stability
           python -m pip install --upgrade pip wheel setuptools
-          # Install your project's dependencies from a file
-          pip install -r requirements.txt
-          # If you don't use requirements.txt, you would use:
-          # pip install pytest streamlit pandas
+          # Install your required packages
+          pip install pytest streamlit pandas 
 
-      # Step 4: Runs Pytest
-      # Use -v (verbose) for more output in the logs, which can help debugging
-      # or stick with -q (quiet) as you had it.
+      # Fix for Error Code 143 (Resource Exhaustion)
+      # We limit pytest parallelism using '-n 2' to reduce concurrent memory usage.
       - name: Run pytest
-        run: pytest -v
+        # Use -v for verbose output, and -n 2 to limit parallel workers to two
+        run: pytest -v -n 2
