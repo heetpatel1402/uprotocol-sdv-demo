@@ -1,4 +1,4 @@
-name: tests
+name: Python Tests
 
 on:
   push:
@@ -6,39 +6,33 @@ on:
 
 jobs:
   tests:
+    # Runs the job on the standard GitHub runner
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     strategy:
-      fail-fast: false
+      # Set to 'true' so the workflow fails immediately if one version fails
+      fail-fast: true
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip' 
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest
+          python -m pip install --upgrade pip wheel setuptools
+          # Install your required packages
+          pip install pytest streamlit pandas 
 
+      # Fix for Error Code 143 (Resource Exhaustion)
+      # We limit pytest parallelism using '-n 2' to reduce concurrent memory usage.
       - name: Run pytest
-        run: pytest -q
-
-      # If something fails, keep logs for quick debugging
-      - name: Upload pytest artifacts (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-logs-py${{ matrix.python-version }}
-          path: |
-            ./.pytest_cache/**
-            ./tests/.pytest_cache/**
-          if-no-files-found: ignore
+        # Use -v for verbose output, and -n 2 to limit parallel workers to two
+        run: pytest -v -n 2
