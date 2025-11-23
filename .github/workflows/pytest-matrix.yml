@@ -6,7 +6,7 @@ on:
 
 jobs:
   tests:
-    # Runs the job on the standard GitHub runner
+    # Uses the standard GitHub runner
     runs-on: ubuntu-latest
 
     strategy:
@@ -28,14 +28,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Ensure pip is up to date and install build essentials
           python -m pip install --upgrade pip wheel setuptools
-          # Install core packages (pytest, streamlit, pandas)
-          # IMPORTANT: Install pytest-xdist to enable the -n flag for parallelism control
+          # Installing xdist is necessary to use the -n flag for parallelism control
           pip install pytest streamlit pandas pytest-xdist
 
-      # Run tests with limited parallelism to prevent the memory-related Error Code 143.
+      # 🚨 FINAL ATTEMPT TO AVOID RESOURCE EXHAUSTION (Error Code 143)
       - name: Run pytest
-        # -v for verbose output
-        # -n 2 limits parallel workers to 2, reducing resource spikes
-        run: pytest -v -n 2
+        # -n 1 runs tests sequentially, using the MINIMUM amount of memory
+        run: pytest -v -n 1
