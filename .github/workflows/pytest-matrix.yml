@@ -6,11 +6,10 @@ on:
 
 jobs:
   tests:
-    # Uses the standard GitHub runner
-    runs-on: ubuntu-latest
+    # 🚨 CRITICAL FIX: Swapping to a Larger Runner for more RAM/CPU 🚨
+    runs-on: ubuntu-latest-4-cores
 
     strategy:
-      # Ensures the entire workflow stops immediately if one job fails
       fail-fast: true
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -23,16 +22,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Caches downloaded packages for faster subsequent runs
           cache: 'pip' 
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel setuptools
-          # Installing xdist is necessary to use the -n flag for parallelism control
+          # We keep xdist installed just in case
           pip install pytest streamlit pandas pytest-xdist
 
-      # 🚨 FINAL ATTEMPT TO AVOID RESOURCE EXHAUSTION (Error Code 143)
       - name: Run pytest
-        # -n 1 runs tests sequentially, using the MINIMUM amount of memory
-        run: pytest -v -n 1
+        # You can now safely increase parallelism back to a reasonable level, 
+        # such as -n 4, to use the extra cores provided by the larger runner.
+        run: pytest -v -n 4
