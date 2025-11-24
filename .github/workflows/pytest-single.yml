@@ -1,0 +1,45 @@
+
+
+name: Python Pytest Single Version Debug
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    # Uses the FREE standard runner
+    runs-on: ubuntu-latest 
+
+    # 🛑 Removed 'strategy: matrix' to simplify troubleshooting
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          # Hardcoded to a single version for focused debugging
+          python-version: '3.11' 
+          cache: 'pip' 
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          # Install all necessary testing packages
+          pip install pytest streamlit pandas pytest-xdist
+
+      # 🚨 Primary Focus: Debugging Exit Code 5 (No Tests Found) 🚨
+      - name: Run pytest (Check Collection)
+        # We run the command that failed, but if it fails again, 
+        # we will check the logs for file naming/location issues.
+        run: pytest -v -n 1 
+
+      - name: Upload pytest artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-logs-py311
+          path: ./.pytest_cache/**
+          if-no-files-found: ignore
